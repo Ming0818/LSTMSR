@@ -1,1 +1,3 @@
-print("LSTM for Speaker Recognition edited!")
+print("LSTM for Speaker Recognition")
+
+print("Let's do this thing.")
