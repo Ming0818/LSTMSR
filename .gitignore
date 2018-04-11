@@ -1,6 +1,9 @@
 # virtual environment
 venv/
 .idea/
+
+# local-dependent folders
 converted/*
 model/*
 raw/*
+img/*
