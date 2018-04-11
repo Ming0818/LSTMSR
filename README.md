@@ -1,43 +1,17 @@
 # LSTMSR
 Speaker Recognition with low-level Long Short-Term Memory for assignment
+Trains a manually-coded LSTM model to identify human voice using [TIMIT corpus](https://github.com/philipperemy/timit) as dataset and optimizes accuracy by tweaking learning rate and number of units
 
-Currently uses Python 3.6.4
+Currently using Python 3.6.4
 
-A pipeline to build a dataset from your own music library and use it to fill the missing genres
-
-Read the [article on Medium](https://medium.com/@juliendespois/finding-the-genre-of-a-song-with-deep-learning-da8f59a61194#.yhemoyql0)
-
-Required install:
+External packages:
 
 ```
-eyed3
-sox --with-lame
-tensorflow
-tflearn
+None
 ```
 
-- Create folder Data/Raw/
-- Place your labeled .mp3 files in Data/Raw/
-
-To create the song slices (might be long):
-
-```
-python main.py slice
-```
-
-To train the classifier (long too):
-
-```
-python main.py train
-```
-
-To test the classifier (fast):
-
-```
-python main.py test
-```
-
-- Most editable parameters are in the config.py file, the model can be changed in the model.py file.
-- I haven't implemented the pipeline to label new songs with the model, but that can be easily done with the provided functions, and eyed3 for the mp3 manipulation. Here's the full pipeline you would need to use.
+- Place raw audio files in raw/
+- Converted audio files are stored in converted/
+- Save/load pickles of trained LSTM models in model/
 
 ![alt tag](https://github.com/xaltt/LSTMSR/blob/master/img/chuckles.png)
