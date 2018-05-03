@@ -145,7 +145,7 @@ while True:
                     sentence_type = au[:2]
                     sentence_number = au[2:].replace(".WAV", "")
                     path_raw = os.path.join(sp_path, au)
-                    path_converted = os.path.join(audio_converted, sp, au)
+                    path_converted = os.path.join(audio_converted, sp, au.replace(".WAV", ".png"))
                     audios.append(Audio(sentence_type, sentence_number, path_raw, path_converted))
                 speakers.append(Speaker(dialect, sex, speaker_id, audios))
         # for speaker in speakers:
@@ -158,7 +158,7 @@ while True:
         print("""LOADING SUCCESSFUL.
         REGISTERED {} TOTAL SPEAKERS.
         REGISTERED {} TOTAL AUDIOS.
-        WIT {} AUDIO PER SPEAKER.\n""".format(Speaker.total_speakers, Audio.total_audios, audio_per_speaker))
+        WITH {} AUDIOS PER SPEAKER.\n""".format(Speaker.total_speakers, Audio.total_audios, audio_per_speaker))
 
         print("CONVERTING AUDIO INTO SPECTROGRAM IMAGES...")
 
@@ -166,15 +166,16 @@ while True:
         converted = 0
         err = 0
         for speaker in speakers:
+            print("CONVERTING", speaker.get_name())
             if (not os.path.exists(os.path.join(audio_converted, speaker.get_name()))):
                 os.mkdir(os.path.join(audio_converted, speaker.get_name()))
             for audio in speaker.get_audios():
                 if(os.path.exists(audio.get_path_converted())):
                     skipped += 1
                 else:
-                    res = subprocess.Popen("copy {} {}".format(audio.get_path_raw(), os.path.join(audio_converted, speaker.get_name())), shell=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+                    command = "sox {} -n spectrogram -Y 200 -X 50 -m -r -o {}".format(audio.get_path_raw(), audio.get_path_converted())
+                    res = subprocess.Popen(command, shell=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
                     output, errors = res.communicate()
-                    #if(output): print("OUTPUT:\n", output)
                     if(errors):
                         err += 1
                         print("ERRORS:\n", errors)
