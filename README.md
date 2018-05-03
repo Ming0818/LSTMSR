@@ -11,7 +11,7 @@ Currently using Python 3.6.4
 External packages:
 
 ```
-None
+sox
 ```
 
 - Place raw audio files in raw/
