@@ -9,19 +9,29 @@ Trains a manually-coded LSTM model to identify human voice using [TIMIT corpus](
 
 Requirements:
 
-[Python 3.6.4](https://www.python.org/downloads/release/python-364/)
-
-[SoX (Sound eXchange)](https://sourceforge.net/projects/sox/files/sox/)
-
+```
+python
+sox
+```
 
 Additional packages:
 
-[numpy](https://pypi.org/project/numpy/)
-
-[Pillow](https://pypi.org/project/Pillow/2.2.1/)
-
+```
+numpy
+pillow
+```
 
 - Place raw audio files in raw/
 - Converted audio files are stored in converted/
 - Save/load pickles of trained LSTM models in model/
 
+
+External links:
+
+[Python 3.6.4](https://www.python.org/downloads/release/python-364/)
+
+[SoX (Sound eXchange)](https://sourceforge.net/projects/sox/files/sox/)
+
+[numpy](https://pypi.org/project/numpy/)
+
+[Pillow](https://pypi.org/project/Pillow/2.2.1/)
