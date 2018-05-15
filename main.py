@@ -122,8 +122,21 @@ if not os.path.exists(saved_model):             #ensures folder exists
 
 #loads main loop
 print("PREPARING MAIN LOOP...")
+audio_per_speaker = 0
 menu_table = \
-"""1. Convert (converts audio from "raw/" into spectrogram image, and then into data, stored in "converted/")
+"""
+\nREGISTERED SPEAKERS: {}
+REGISTERED AUDIOS: {}
+AUDIO PER SPEAKER: {}
+
+LEARNING RATE: x
+HIDDEN UNITS: y
+MAX EPOCH: z
+
+LSTM MODEL: NULL
+ACCURACY: NULL
+
+1. Convert (converts audio from "raw/" into spectrogram image, and then into data, stored in "converted/")
 2. Train (trains LSTM model with data from "converted/")
 3. Test (tests LSTM model with data from "converted/")
 4. Edit (edits parameters to optimize accuracy)
@@ -136,7 +149,7 @@ Please enter a number."""
 print("\nWelcome to the LSTM Speaker Recognition program!\n")
 while True:
     #main loop
-    print(menu_table)
+    print(menu_table.format(Speaker.total_speakers, Audio.total_audios, audio_per_speaker))
     choice = input("Choice: ")
     print("\n")
     if choice == "1":
@@ -168,7 +181,7 @@ while True:
         #     for audio in speaker.get_audios():
         #         print(audio.get_usage(), audio.get_type(), audio.get_number(), audio.get_path_raw(), audio.get_path_converted())
 
-        audio_per_speaker = round(Audio.total_audios / Speaker.total_speakers)
+        if(Speaker.total_speakers > 0): audio_per_speaker = round(Audio.total_audios / Speaker.total_speakers)
 
         print("""LOADING SUCCESSFUL.
         REGISTERED {} TOTAL SPEAKERS.
