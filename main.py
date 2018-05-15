@@ -1,11 +1,14 @@
 print("IMPORTING PACKAGES...")
 
-import os       #for directories
-import time     #for naming files
-import pickle   #for storing objects
-import subprocess #for sending shell commands
+import os                   #for directories
+import time                 #for naming files
+import pickle               #for storing objects
+import subprocess           #for sending shell commands
+import numpy                #for matrix calculations
+from PIL import Image       #for converting grayscale image into numbers
 
 class Speaker:
+    #holds information about registered speakers
     total_speakers = 0
     def __init__(self, s_dialect, s_sex, s_id, s_audios):
         self.dialect = s_dialect
@@ -13,6 +16,7 @@ class Speaker:
         self.speaker_id = s_id
         self.audios = s_audios
         Speaker.total_speakers += 1
+        #refreshes audio usage distribution per speaker
         Audio.total_validate_SI = 0
         Audio.total_validate_SX = 0
         Audio.total_test_SI = 0
@@ -34,6 +38,7 @@ class Speaker:
         return self.sex + self.speaker_id
 
 class Audio:
+    #holds individual audio, each speaker has 10 of these as list
     total_audios = 0
     total_validate = 0
     total_train = 0
@@ -47,7 +52,7 @@ class Audio:
 
         #using core test set, 24 speaker, each 10 sentence, 2 SA, 3 SI, 5 SX
         #2 validation, 6 train, 2 test
-        #1 SI 1 SX val, 2 SA 1 SI 3 SX train, 1 SI 1 SX test
+        #1 SI 1 SX validation, 2 SA 1 SI 3 SX train, 1 SI 1 SX test
 
         #The dialect sentences (SA). To expose dialectal difference. 2 sentences, read by all speakers.
         #The phonetically-compact sentences (SX). To slightly differentiate phonetic context. 5 sentences per speaker, 1 speakers per sentence.
@@ -58,6 +63,7 @@ class Audio:
         self.path_raw = a_path_raw
         self.path_converted = a_path_converted
         Audio.total_audios += 1
+        #distribute usage between audios according to predetermined values
         if self.sentence_type == "SX" and Audio.total_validate_SX < 1:
             self.usage = "Validate"
             Audio.total_validate_SX += 1
@@ -94,6 +100,13 @@ class Audio:
     def get_usage(self):
         return self.usage
 
+    def set_data(self, a_data):
+        self.data = a_data
+
+    def get_data(self):
+        return self.data
+
+#prepare the directories used
 print("BUILDING DIRECTORIES...")
 #folder paths
 audio_raw = "raw"                 #raw spectrogram audio file
@@ -107,6 +120,7 @@ if not os.path.exists(audio_converted):         #ensures folder exists
 if not os.path.exists(saved_model):             #ensures folder exists
     os.mkdir(saved_model)
 
+#loads main loop
 print("PREPARING MAIN LOOP...")
 menu_table = \
 """1. Convert (converts audio from "raw/" into spectrogram image, and then into data, stored in "converted/")
@@ -126,6 +140,7 @@ while True:
     choice = input("Choice: ")
     print("\n")
     if choice == "1":
+        #converts audio into spectrogram, and then into numpy array, and store it as classes
         print("CONVERTING AUDIO...\n")
 
         print("""LOADING AUDIO FILES FROM "raw/"...""")
@@ -160,6 +175,8 @@ while True:
         REGISTERED {} TOTAL AUDIOS.
         WITH {} AUDIOS PER SPEAKER.\n""".format(Speaker.total_speakers, Audio.total_audios, audio_per_speaker))
 
+        input("Press enter to continue...")
+
         print("CONVERTING AUDIO INTO SPECTROGRAM IMAGES...")
 
         skipped = 0
@@ -173,7 +190,8 @@ while True:
                 if(os.path.exists(audio.get_path_converted())):
                     skipped += 1
                 else:
-                    command = "sox {} -n spectrogram -Y 200 -X 50 -m -r -o {}".format(audio.get_path_raw(), audio.get_path_converted())
+                    #-n is necessary to generate the image, -Y sets max pixel height (rounded down to 2^n + 1), -X sets pps, -m monochrome, -r raw / no legend, -o output name
+                    command = "sox {} -n spectrogram -Y 150 -X 50 -m -r -o {}".format(audio.get_path_raw(), audio.get_path_converted())
                     res = subprocess.Popen(command, shell=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
                     output, errors = res.communicate()
                     if(errors):
@@ -186,11 +204,26 @@ while True:
         print("""CONVERSION SUCCESSFUL.
         {} AUDIO FILES SUCCESSFULLY CONVERTED.
         {} DUPLICATE AUDIO FILES SKIPPED.
-        {} ERROR AUDIO FILES DETECTED\n""".format(converted, skipped, err))
+        {} ERROR AUDIO FILES DETECTED.\n""".format(converted, skipped, err))
 
-        print("Converting spectrogram images into numbers...")
+        input("Press enter to continue...")
 
-        print("""Storing numbers as pickle in "converted/"...""")
+        print("CONVERTING SPECTROGRAM INTO NUMBERS...")
+
+        converted = 0
+        for speaker in speakers:
+            for audio in speaker.get_audios():
+                print(audio.get_path_converted())
+                img = Image.open(audio.get_path_converted())
+                width, height = img.size
+                imgData = numpy.asarray(img)
+                print("{}x{}\n{}".format(width, height, imgData))
+                imgData = imgData/255
+                audio.set_data(imgData)
+                converted += 1
+
+        print("""CONVERSION SUCCESSFUL.
+        {} SPECTROGRAM IMAGES CONVERTED INTO NUMPY ARRAYS.\n""".format(converted))
 
         input("Press enter to continue...")
 

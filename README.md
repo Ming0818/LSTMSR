@@ -12,6 +12,8 @@ External packages:
 
 ```
 sox
+numpy
+pillow
 ```
 
 - Place raw audio files in raw/
