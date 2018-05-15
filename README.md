@@ -13,11 +13,13 @@ Requirements:
 
 [SoX (Sound eXchange)](https://sourceforge.net/projects/sox/files/sox/)
 
+
 Additional packages:
 
 [numpy](https://pypi.org/project/numpy/)
 
 [Pillow](https://pypi.org/project/Pillow/2.2.1/)
+
 
 - Place raw audio files in raw/
 - Converted audio files are stored in converted/
