@@ -6,6 +6,7 @@ import time                 # for naming files
 import pickle               # for storing objects
 import subprocess           # for sending shell commands
 import numpy                # for matrix calculations
+from scipy.special import expit     #for sigmoid squash
 from PIL import Image       # for converting gray scale image into numbers
 
 
@@ -37,8 +38,14 @@ class Model:                # for storing LSTM models
     def get_accuracy(self):
         return self.accuracy
 
+    def set_wm_hidden(self, m_wm_hidden):
+        self.wm_hidden = m_wm_hidden
+
     def get_wm_hidden(self):
         return self.wm_hidden
+
+    def set_wm_score(self, m_wm_score):
+        self.wm_score = m_wm_score
 
     def get_wm_score(self):
         return self.wm_score
@@ -148,10 +155,6 @@ class Audio:                # for storing each audio file
         return self.data
 
 
-def sigmoid(num):
-    return 1 / (1 + numpy.exp(-num))
-
-
 def train():
     train_dataset = []
     val_dataset = []
@@ -168,30 +171,34 @@ def train():
     #     print(numpy.vstack((data.get_data()[:,0].reshape(129, 1), numpy.zeros((129, 1)))))
     # for data in val_dataset:
     #     print(data.get_data().shape, data.get_usage())
-    for i in range(1, max_epoch):  # 3000 epochs
+    for i in range(1, max_epoch + 1):  # 3000 epochs
         print("EPOCH {}!".format(i))
+        print("CURRWMH:\n", curr_model.get_wm_hidden()[:3, 0])
+        print("CURRWMS:\n", curr_model.get_wm_score()[:3, 0])
         if i % 5 == 5:          # validate each 5 epochs
             print("VALIDATE TIME!")
         for data in train_dataset:
-            backprop(data.get_data(), numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float),
-                     numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float), data.get_index())
+            err_wm_hidden = backprop(data.get_data(), numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float),
+                                     numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float),
+                                     data.get_index(), 0)[2]
+            # print("FINAL ERROR\n", err_wm_hidden)
+            curr_model.set_wm_hidden(curr_model.get_wm_hidden() - curr_model.get_learning_rate() * err_wm_hidden)  # w
+        input()
 
 
 def backprop(f_dataset_train, h_prev, m_prev, t_index):
-    inp_unit = f_dataset_train[:, 0].reshape(input_size, 1)
-    inp_whole = numpy.vstack((inp_unit, h_prev))
-    hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)
-    a_gate = numpy.tanh(hidden_whole[:hidden_unit_size, :])
-    i_gate = sigmoid(hidden_whole[hidden_unit_size:2*hidden_unit_size, :])
-    f_gate = sigmoid(hidden_whole[2*hidden_unit_size:3*hidden_unit_size, :] + f_bias)
-    o_gate = sigmoid(hidden_whole[3*hidden_unit_size:, :])
-    m_curr = i_gate * a_gate + f_gate * m_prev
-    h_curr = o_gate * numpy.tanh(m_curr)
-    if f_dataset_train[:, 1:].size != 0:
-        backprop(f_dataset_train[:, 1:], h_curr, m_curr, t_index)
-    else:
-        score = numpy.dot(curr_model.get_wm_score(), h_curr)
-        score_prob = numpy.exp(score) / numpy.sum(numpy.exp(score))
+    inp_unit = f_dataset_train[:, 0].reshape(input_size, 1)     # value 0 - 1
+    inp_whole = numpy.vstack((inp_unit, h_prev))    # value -1 - 1
+    hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)     # arbitrary value, safely squashed
+    a_gate = numpy.tanh(hidden_whole[:hidden_unit_size, :])                             # value -1 - 1
+    i_gate = expit(hidden_whole[hidden_unit_size:2*hidden_unit_size, :])              # value 0 - 1
+    f_gate = expit(hidden_whole[2*hidden_unit_size:3*hidden_unit_size, :] + f_bias)   # value 0 - 1, nearing 1 early
+    o_gate = expit(hidden_whole[3*hidden_unit_size:, :])                              # value 0 - 1
+    m_curr = i_gate * a_gate + f_gate * m_prev      # max value = n + 1, safely squashed
+    h_curr = o_gate * numpy.tanh(m_curr)            # value = -1 - 1
+    if f_dataset_train[:, 1:].size == 0:    # on the last step, calculate score, errhc
+        score = numpy.dot(curr_model.get_wm_score(), h_curr)            # arbitrary value, safely squashed
+        score_prob = numpy.exp(score) / numpy.sum(numpy.exp(score))     # value 0 - 1, sums up to 1
         # a straightforward solution to calculate J
         # jac = numpy.zeros((len(score), len(score_prob)), dtype=float)
         # for i in range(len(score)):
@@ -201,11 +208,31 @@ def backprop(f_dataset_train, h_prev, m_prev, t_index):
         #         else:
         #             jac[i, j] = -score_prob[i] * score_prob[j]
         # and a concise, one liner solution to calculate J
-        jac = numpy.diagflat(score_prob) - numpy.dot(score_prob, score_prob.T)  # J = yi x (1{i = j} - yj)
-        err_score = numpy.dot(jac, score_prob - target_array[t_index])          # errs = J . (y - t)
-        err_wm_score = numpy.dot(err_score, h_curr.T)                           # errws = errs . hcurr_T
-        err_h_curr = numpy.dot(curr_model.get_wm_score().T, err_score)          # errhc = ws_T . errs
-
+        jac = numpy.diagflat(score_prob) - numpy.dot(score_prob, score_prob.T)  # J = yi x (1{i = j} - yj), value -1 - 1
+        err_score = numpy.dot(jac, score_prob - target_array[t_index])  # errs = J . (y - t), value -1 - 1
+        err_wm_score = numpy.dot(err_score, h_curr.T)  # errws = errs . hcurr_T, value -1 - 1
+        curr_model.set_wm_score(curr_model.get_wm_score() - curr_model.get_learning_rate() * err_wm_score)  # ws update
+        err_h_curr = numpy.dot(curr_model.get_wm_score().T, err_score)  # errhc = ws_T . errs, arbitrary, small
+        err_m_curr = 0          # last step has no next memory cell
+        err_wm_hidden = 0       # last step has 0 accumulated weight error
+    else:       # if not on last step, wait for errhc, , errm, errwmh from next step
+        err_h_curr, err_m_curr, err_wm_hidden = backprop(f_dataset_train[:, 1:], h_curr, m_curr, t_index)
+    err_m_curr = err_m_curr + (err_h_curr * o_gate * (1 - numpy.power(numpy.tanh(m_curr), 2)))  # max err_h_curr, accum
+    err_a_gate = err_m_curr * i_gate              # errag = errmc x ig, value 0 - err_m_curr
+    err_i_gate = err_m_curr * a_gate              # errig = errmc x ag, value -err_m_curr - err_m_curr
+    err_f_gate = err_m_curr * m_prev              # errfg = errmc x mprev, CAN GET VERY VERY HUGE
+    err_o_gate = err_h_curr * numpy.tanh(m_curr)  # errog = errh x tanh(mcurr), value max err_h_curr
+    err_m_prev = err_m_curr * f_gate              # errmprev = errmc x fg, value max err_m_curr
+    err_a_inp = err_a_gate * (1 - numpy.power(numpy.tanh(hidden_whole[:hidden_unit_size, :]), 2))   # ainp, err_m_curr
+    err_i_inp = err_i_gate * i_gate * (1 - i_gate)  # erriinp = errig * ig * (1 - ig), err_m_curr
+    err_f_inp = err_f_gate * f_gate * (1 - f_gate)  # errfinp = errfg * fg * (1 - fg), CAN GET VERY HUGE
+    err_o_inp = err_o_gate * o_gate * (1 - o_gate)  # erroinp = errog * og * (1 - og), err_h_curr
+    err_inp_whole = numpy.vstack((err_a_inp, err_i_inp, err_f_inp, err_o_inp))    # errz
+    err_wm_hidden = err_wm_hidden + numpy.dot(err_inp_whole, inp_whole.T)   # value max err_inp_whole, accum
+    err_inp_unit = numpy.dot(curr_model.get_wm_hidden().T, err_inp_whole)
+    err_h_prev = err_inp_unit[input_size:, 0].reshape((hidden_unit_size, 1))
+    # print("ERRHPREV {} (MAX {}):\n".format(count, numpy.max(err_h_prev)), err_h_prev[:3, 0])   # grows with w
+    return err_h_prev, err_m_prev, err_wm_hidden
 
 
 print("LOADING VARIABLES...")

@@ -19,6 +19,7 @@ Additional packages:
 ```
 numpy
 pillow
+scipy
 ```
 
 - Place raw audio files in raw/
@@ -32,6 +33,8 @@ External links:
 
 [SoX (Sound eXchange)](https://sourceforge.net/projects/sox/files/sox/)
 
-[numpy](https://pypi.org/project/numpy/)
+[NumPy](https://pypi.org/project/numpy/)
 
 [Pillow](https://pypi.org/project/Pillow/2.2.1/)
+
+[SciPy](https://pypi.org/project/scipy/)
