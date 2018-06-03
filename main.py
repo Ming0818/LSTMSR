@@ -6,6 +6,7 @@ import time                 # for naming files
 import pickle               # for storing objects
 import subprocess           # for sending shell commands
 import numpy                # for matrix calculations
+import sys                  # for stdout flush
 from scipy.special import expit     #for sigmoid squash
 from PIL import Image       # for converting gray scale image into numbers
 
@@ -107,18 +108,18 @@ class Audio:                # for storing each audio file
         self.index = None
         self.data = None
         Audio.total_audios += 1
-        if self.sentence_type == "SX" and Audio.total_validate_SX < 1:
-            self.usage = "Validate"
-            Audio.total_validate_SX += 1
-            Audio.total_validate += 1
-        elif self.sentence_type == "SX" and Audio.total_test_SX < 1:
+        # if self.sentence_type == "SX" and Audio.total_validate_SX < 1:        #!!! FIX
+        #     self.usage = "Validate"
+        #     Audio.total_validate_SX += 1
+        #     Audio.total_validate += 1
+        if self.sentence_type == "SX" and Audio.total_test_SX < 1:
             self.usage = "Test"
             Audio.total_test_SX += 1
             Audio.total_test += 1
-        elif self.sentence_type == "SI" and Audio.total_validate_SI < 1:
-            self.usage = "Validate"
-            Audio.total_validate_SI += 1
-            Audio.total_validate += 1
+        # elif self.sentence_type == "SI" and Audio.total_validate_SI < 1:
+        #     self.usage = "Validate"
+        #     Audio.total_validate_SI += 1
+        #     Audio.total_validate += 1
         elif self.sentence_type == "SI" and Audio.total_test_SI < 1:
             self.usage = "Test"
             Audio.total_test_SI += 1
@@ -155,38 +156,7 @@ class Audio:                # for storing each audio file
         return self.data
 
 
-def train():
-    train_dataset = []
-    val_dataset = []
-    for t_speaker in speakers:
-        train_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Train"]
-        val_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Validate"]
-        train_dataset.extend(train_dataset_partial)
-        val_dataset.extend(val_dataset_partial)
-    # for data in train_dataset:
-    #     print(data.get_data().shape, data.get_usage())
-    #     print(data.get_data()[:,0].reshape(129, 1))
-    #     print(data.get_data()[:,1:].shape)
-    #     print(numpy.zeros((129, 1)).shape)
-    #     print(numpy.vstack((data.get_data()[:,0].reshape(129, 1), numpy.zeros((129, 1)))))
-    # for data in val_dataset:
-    #     print(data.get_data().shape, data.get_usage())
-    for i in range(1, max_epoch + 1):  # 3000 epochs
-        print("EPOCH {}!".format(i))
-        print("CURRWMH:\n", curr_model.get_wm_hidden()[:3, 0])
-        print("CURRWMS:\n", curr_model.get_wm_score()[:3, 0])
-        if i % 5 == 5:          # validate each 5 epochs
-            print("VALIDATE TIME!")
-        for data in train_dataset:
-            err_wm_hidden = backprop(data.get_data(), numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float),
-                                     numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float),
-                                     data.get_index(), 0)[2]
-            # print("FINAL ERROR\n", err_wm_hidden)
-            curr_model.set_wm_hidden(curr_model.get_wm_hidden() - curr_model.get_learning_rate() * err_wm_hidden)  # w
-        input()
-
-
-def backprop(f_dataset_train, h_prev, m_prev, t_index):
+def train(f_dataset_train, h_prev, m_prev, t_index):
     inp_unit = f_dataset_train[:, 0].reshape(input_size, 1)     # value 0 - 1
     inp_whole = numpy.vstack((inp_unit, h_prev))    # value -1 - 1
     hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)     # arbitrary value, safely squashed
@@ -199,6 +169,7 @@ def backprop(f_dataset_train, h_prev, m_prev, t_index):
     if f_dataset_train[:, 1:].size == 0:    # on the last step, calculate score, errhc
         score = numpy.dot(curr_model.get_wm_score(), h_curr)            # arbitrary value, safely squashed
         score_prob = numpy.exp(score) / numpy.sum(numpy.exp(score))     # value 0 - 1, sums up to 1
+        loss = -numpy.log(score_prob[t_index])          # L = -ln(Pt)
         # a straightforward solution to calculate J
         # jac = numpy.zeros((len(score), len(score_prob)), dtype=float)
         # for i in range(len(score)):
@@ -216,7 +187,7 @@ def backprop(f_dataset_train, h_prev, m_prev, t_index):
         err_m_curr = 0          # last step has no next memory cell
         err_wm_hidden = 0       # last step has 0 accumulated weight error
     else:       # if not on last step, wait for errhc, , errm, errwmh from next step
-        err_h_curr, err_m_curr, err_wm_hidden = backprop(f_dataset_train[:, 1:], h_curr, m_curr, t_index)
+        err_h_curr, err_m_curr, err_wm_hidden, loss = train(f_dataset_train[:, 1:], h_curr, m_curr, t_index)
     err_m_curr = err_m_curr + (err_h_curr * o_gate * (1 - numpy.power(numpy.tanh(m_curr), 2)))  # max err_h_curr, accum
     err_a_gate = err_m_curr * i_gate              # errag = errmc x ig, value 0 - err_m_curr
     err_i_gate = err_m_curr * a_gate              # errig = errmc x ag, value -err_m_curr - err_m_curr
@@ -232,7 +203,27 @@ def backprop(f_dataset_train, h_prev, m_prev, t_index):
     err_inp_unit = numpy.dot(curr_model.get_wm_hidden().T, err_inp_whole)
     err_h_prev = err_inp_unit[input_size:, 0].reshape((hidden_unit_size, 1))
     # print("ERRHPREV {} (MAX {}):\n".format(count, numpy.max(err_h_prev)), err_h_prev[:3, 0])   # grows with w
-    return err_h_prev, err_m_prev, err_wm_hidden
+    return err_h_prev, err_m_prev, err_wm_hidden, loss
+
+
+def validate(f_dataset_train, h_prev, m_prev, t_index):
+    inp_unit = f_dataset_train[:, 0].reshape(input_size, 1)     # value 0 - 1
+    inp_whole = numpy.vstack((inp_unit, h_prev))    # value -1 - 1
+    hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)     # arbitrary value, safely squashed
+    a_gate = numpy.tanh(hidden_whole[:hidden_unit_size, :])                             # value -1 - 1
+    i_gate = expit(hidden_whole[hidden_unit_size:2*hidden_unit_size, :])              # value 0 - 1
+    f_gate = expit(hidden_whole[2*hidden_unit_size:3*hidden_unit_size, :] + f_bias)   # value 0 - 1, nearing 1 early
+    o_gate = expit(hidden_whole[3*hidden_unit_size:, :])                              # value 0 - 1
+    m_curr = i_gate * a_gate + f_gate * m_prev      # max value = n + 1, safely squashed
+    h_curr = o_gate * numpy.tanh(m_curr)            # value = -1 - 1
+    if f_dataset_train[:, 1:].size == 0:    # on the last step, calculate score, errhc
+        score = numpy.dot(curr_model.get_wm_score(), h_curr)            # arbitrary value, safely squashed
+        score_prob = numpy.exp(score) / numpy.sum(numpy.exp(score))     # value 0 - 1, sums up to 1
+        loss = -numpy.log(score_prob[t_index])          # L = -ln(Pt)
+        return loss
+    else:
+        loss = validate(f_dataset_train[:, 1:], h_curr, m_curr, t_index)
+        return loss
 
 
 print("LOADING VARIABLES...")
@@ -378,7 +369,83 @@ while True:
         print("CONVERSION SUCCESSFUL.\n SPECTROGRAM IMAGES CONVERTED INTO NUMPY ARRAYS.\n")
         input("Press enter to continue...")
     elif uinp == "2":
-        train()
+        train_dataset = []
+        val_dataset = []
+        test_dataset = []       # !!!FIX
+        curr_val_loss = 1000000000
+        curr_train_loss = 1000000000
+        curr_test_loss = 1000000000
+        val_loss_increase = 0
+        train_loss_increase = 0
+        test_loss_increase = 0
+        for t_speaker in speakers:
+            train_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Train"]
+            val_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Validate"]
+            test_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Test"]
+            train_dataset.extend(train_dataset_partial)
+            val_dataset.extend(val_dataset_partial)
+            test_dataset.extend(test_dataset_partial)   # FIX !!!!
+        for i in range(1, max_epoch + 1):  # 3000 epochs
+            print("EPOCH {}!".format(i))
+            total_train_loss = 0
+            for data in train_dataset:
+                print("#", end="")
+                sys.stdout.flush()
+                err_wm, data_loss = train(data.get_data(),
+                                          numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float),
+                                          numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float),
+                                          data.get_index())[2:]
+                curr_model.set_wm_hidden(curr_model.get_wm_hidden() - curr_model.get_learning_rate() * err_wm)
+                total_train_loss = total_train_loss + data_loss
+            print("\n")
+            train_loss = total_train_loss / len(train_dataset)
+            print("CURRTLOSS:\n", curr_train_loss)
+            print("TRAINLOSS:\n", train_loss)
+            if curr_train_loss > train_loss:
+                curr_train_loss = train_loss
+            else:
+                train_loss_increase = train_loss_increase + 1
+            # print("\nEPOCH {} WM (MAX: {} MIN: {}):\n".format(
+            #     i, numpy.max(curr_model.get_wm_hidden()), numpy.min(curr_model.get_wm_hidden())),
+            #     curr_model.get_wm_hidden())
+            if i % 5 == 0:  # validate each 5 epochs
+                print("VALIDATE TIME!")
+                # total_val_loss = 0            !!! FIX
+                # for data in val_dataset:
+                #     print("#", end="")
+                #     sys.stdout.flush()
+                #     data_loss = validate(data.get_data(), numpy.zeros((
+                #         curr_model.get_hidden_unit_size(), 1), dtype=float),
+                #                          numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float),
+                #                          data.get_index())
+                #     total_val_loss = total_val_loss + data_loss
+                # print("\n")
+                # val_loss = total_val_loss / len(val_dataset)
+                # print("CURRVLOSS:\n", curr_val_loss)
+                # print("VALLOSS:\n", val_loss)
+                # if curr_val_loss > val_loss:
+                #     curr_val_loss = val_loss
+                # else:
+                #     val_loss_increase = val_loss_increase + 1
+                total_test_loss = 0
+                for data in test_dataset:
+                    print("#", end="")
+                    sys.stdout.flush()
+                    data_loss = validate(data.get_data(), numpy.zeros((
+                        curr_model.get_hidden_unit_size(), 1), dtype=float),
+                                         numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float),
+                                         data.get_index())
+                    total_test_loss = total_test_loss + data_loss
+                print("\n")
+                test_loss = total_test_loss / len(test_dataset)
+                print("CURRTLOSS:\n", curr_test_loss)
+                print("TESTLOSS:\n", test_loss)
+                if curr_test_loss > test_loss:
+                    curr_test_loss = test_loss
+                else:
+                    test_loss_increase = test_loss_increase + 1
+        print("TRAIN LOSS INCREASE", train_loss_increase)
+        print("VAL LOSS INCREASE", test_loss_increase)
     elif uinp == "4":
         temp_lr = float(input("INPUT DESIRED LEARNING RATE: "))
         temp_hu = int(input("INPUT DESIRED HIDDEN UNIT SIZE: "))
