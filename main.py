@@ -2,11 +2,11 @@ print("INITIALIZING PROGRAM...")
 
 
 import os                   # for directories
-import time                 # for naming files
 import pickle               # for storing objects
 import subprocess           # for sending shell commands
 import numpy                # for matrix calculations
 import sys                  # for stdout flush
+import random               # for shuffling array / list contents
 from scipy.special import expit     #for sigmoid squash
 from PIL import Image       # for converting gray scale image into numbers
 
@@ -16,7 +16,8 @@ class Model:                # for storing LSTM models
         self.learning_rate = m_learning_rate     # adjustable parameter
         self.hidden_unit_size = m_hidden_unit_size         # adjustable parameter
         self.accuracy = 0                        # tested parameter
-        self.name = "lr{}h{}".format(self.learning_rate, self.hidden_unit_size)  # for identifying models
+        temp_name = "{:.10f}".format(self.learning_rate).rstrip("0")
+        self.name = "lr{}h{}".format(temp_name[2:], self.hidden_unit_size)  # for identifying models
         # 4 gates, each a dxn matrix to handle input, and each with a dxd matrix for recursion
         #       at     wc uc                d = hidden_unit_size    n = input_size
         # zt = [it] = [wi ui] x [ xt ]      a, i, f, o = gate value
@@ -35,6 +36,9 @@ class Model:                # for storing LSTM models
 
     def get_hidden_unit_size(self):
         return self.hidden_unit_size
+
+    def set_accuracy(self, m_accuracy):
+        self.accuracy = m_accuracy
 
     def get_accuracy(self):
         return self.accuracy
@@ -160,10 +164,10 @@ def train(f_dataset_train, h_prev, m_prev, t_index):
     inp_unit = f_dataset_train[:, 0].reshape(input_size, 1)     # value 0 - 1
     inp_whole = numpy.vstack((inp_unit, h_prev))    # value -1 - 1
     hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)     # arbitrary value, safely squashed
-    a_gate = numpy.tanh(hidden_whole[:hidden_unit_size, :])                             # value -1 - 1
-    i_gate = expit(hidden_whole[hidden_unit_size:2*hidden_unit_size, :])              # value 0 - 1
-    f_gate = expit(hidden_whole[2*hidden_unit_size:3*hidden_unit_size, :] + f_bias)   # value 0 - 1, nearing 1 early
-    o_gate = expit(hidden_whole[3*hidden_unit_size:, :])                              # value 0 - 1
+    a_gate = numpy.tanh(hidden_whole[:curr_model.get_hidden_unit_size(), :])                             # value -1 - 1
+    i_gate = expit(hidden_whole[curr_model.get_hidden_unit_size():2*curr_model.get_hidden_unit_size(), :])              # value 0 - 1
+    f_gate = expit(hidden_whole[2*curr_model.get_hidden_unit_size():3*curr_model.get_hidden_unit_size(), :] + f_bias)   # value 0 - 1, nearing 1 early
+    o_gate = expit(hidden_whole[3*curr_model.get_hidden_unit_size():, :])                              # value 0 - 1
     m_curr = i_gate * a_gate + f_gate * m_prev      # max value = n + 1, safely squashed
     h_curr = o_gate * numpy.tanh(m_curr)            # value = -1 - 1
     if f_dataset_train[:, 1:].size == 0:    # on the last step, calculate score, errhc
@@ -194,14 +198,14 @@ def train(f_dataset_train, h_prev, m_prev, t_index):
     err_f_gate = err_m_curr * m_prev              # errfg = errmc x mprev, CAN GET VERY VERY HUGE
     err_o_gate = err_h_curr * numpy.tanh(m_curr)  # errog = errh x tanh(mcurr), value max err_h_curr
     err_m_prev = err_m_curr * f_gate              # errmprev = errmc x fg, value max err_m_curr
-    err_a_inp = err_a_gate * (1 - numpy.power(numpy.tanh(hidden_whole[:hidden_unit_size, :]), 2))   # ainp, err_m_curr
+    err_a_inp = err_a_gate * (1 - numpy.power(numpy.tanh(hidden_whole[:curr_model.get_hidden_unit_size(), :]), 2))   # ainp, err_m_curr
     err_i_inp = err_i_gate * i_gate * (1 - i_gate)  # erriinp = errig * ig * (1 - ig), err_m_curr
     err_f_inp = err_f_gate * f_gate * (1 - f_gate)  # errfinp = errfg * fg * (1 - fg), CAN GET VERY HUGE
     err_o_inp = err_o_gate * o_gate * (1 - o_gate)  # erroinp = errog * og * (1 - og), err_h_curr
     err_inp_whole = numpy.vstack((err_a_inp, err_i_inp, err_f_inp, err_o_inp))    # errz
     err_wm_hidden = err_wm_hidden + numpy.dot(err_inp_whole, inp_whole.T)   # value max err_inp_whole, accum
     err_inp_unit = numpy.dot(curr_model.get_wm_hidden().T, err_inp_whole)
-    err_h_prev = err_inp_unit[input_size:, 0].reshape((hidden_unit_size, 1))
+    err_h_prev = err_inp_unit[input_size:, 0].reshape((curr_model.get_hidden_unit_size(), 1))
     # print("ERRHPREV {} (MAX {}):\n".format(count, numpy.max(err_h_prev)), err_h_prev[:3, 0])   # grows with w
     return err_h_prev, err_m_prev, err_wm_hidden, loss
 
@@ -210,10 +214,10 @@ def validate(f_dataset_train, h_prev, m_prev, t_index):
     inp_unit = f_dataset_train[:, 0].reshape(input_size, 1)     # value 0 - 1
     inp_whole = numpy.vstack((inp_unit, h_prev))    # value -1 - 1
     hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)     # arbitrary value, safely squashed
-    a_gate = numpy.tanh(hidden_whole[:hidden_unit_size, :])                             # value -1 - 1
-    i_gate = expit(hidden_whole[hidden_unit_size:2*hidden_unit_size, :])              # value 0 - 1
-    f_gate = expit(hidden_whole[2*hidden_unit_size:3*hidden_unit_size, :] + f_bias)   # value 0 - 1, nearing 1 early
-    o_gate = expit(hidden_whole[3*hidden_unit_size:, :])                              # value 0 - 1
+    a_gate = numpy.tanh(hidden_whole[:curr_model.get_hidden_unit_size(), :])                             # value -1 - 1
+    i_gate = expit(hidden_whole[curr_model.get_hidden_unit_size():2*curr_model.get_hidden_unit_size(), :])              # value 0 - 1
+    f_gate = expit(hidden_whole[2*curr_model.get_hidden_unit_size():3*curr_model.get_hidden_unit_size(), :] + f_bias)   # value 0 - 1, nearing 1 early
+    o_gate = expit(hidden_whole[3*curr_model.get_hidden_unit_size():, :])                              # value 0 - 1
     m_curr = i_gate * a_gate + f_gate * m_prev      # max value = n + 1, safely squashed
     h_curr = o_gate * numpy.tanh(m_curr)            # value = -1 - 1
     if f_dataset_train[:, 1:].size == 0:    # on the last step, calculate score, errhc
@@ -224,6 +228,25 @@ def validate(f_dataset_train, h_prev, m_prev, t_index):
     else:
         loss = validate(f_dataset_train[:, 1:], h_curr, m_curr, t_index)
         return loss
+
+
+def test(f_dataset_train, h_prev, m_prev):
+    inp_unit = f_dataset_train[:, 0].reshape(input_size, 1)     # value 0 - 1
+    inp_whole = numpy.vstack((inp_unit, h_prev))    # value -1 - 1
+    hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)     # arbitrary value, safely squashed
+    a_gate = numpy.tanh(hidden_whole[:curr_model.get_hidden_unit_size(), :])                             # value -1 - 1
+    i_gate = expit(hidden_whole[curr_model.get_hidden_unit_size():2*curr_model.get_hidden_unit_size(), :])              # value 0 - 1
+    f_gate = expit(hidden_whole[2*curr_model.get_hidden_unit_size():3*curr_model.get_hidden_unit_size(), :] + f_bias)   # value 0 - 1, nearing 1 early
+    o_gate = expit(hidden_whole[3*curr_model.get_hidden_unit_size():, :])                              # value 0 - 1
+    m_curr = i_gate * a_gate + f_gate * m_prev      # max value = n + 1, safely squashed
+    h_curr = o_gate * numpy.tanh(m_curr)            # value = -1 - 1
+    if f_dataset_train[:, 1:].size == 0:    # on the last step, calculate score, errhc
+        score = numpy.dot(curr_model.get_wm_score(), h_curr)            # arbitrary value, safely squashed
+        score_prob = numpy.exp(score) / numpy.sum(numpy.exp(score))     # value 0 - 1, sums up to 1
+        return score_prob
+    else:
+        score_prob = test(f_dataset_train[:, 1:], h_curr, m_curr)
+        return score_prob
 
 
 print("LOADING VARIABLES...")
@@ -242,6 +265,7 @@ max_epoch = 3000   # fixed value parameter
 input_size = 129   # fixed value parameter
 f_bias = 5         # fixed value parameter
 target_array = []  # for accessing corresponding target matrix
+decision_threshold = 0.5    # for accepting / rejecting a result
 curr_model = Model(learning_rate, hidden_unit_size)
 main_menu = """
 REGISTERED SPEAKERS: {}
@@ -253,7 +277,7 @@ HIDDEN UNITS: {}
 MAX EPOCH: {}
 
 LSTM MODEL: {}
-ACCURACY: {}
+ACCURACY: {:.3f}%
 
 1. Convert (converts audio from "raw/" into spectrogram image, and then into data, stored in "converted/")
 2. Train (trains LSTM model with data from "converted/")
@@ -290,8 +314,9 @@ while True:
         # converts audio into spectrogram, then into numpy array
         print("CONVERTING AUDIO...\n")
         print("""LOADING AUDIO FILES FROM "raw/"...""")
-        speaker = []    # empties speaker array
+        speakers = []    # empties speaker array
         Speaker.total_speakers = 0
+        Audio.total_audios = 0
         for dr in os.listdir(path_audio_raw):
             dialect = dr                                # DR1 - DR8
             dr_path = os.path.join(path_audio_raw, dr)  # path into each DR directory
@@ -326,7 +351,6 @@ while True:
         REGISTERED {} TOTAL SPEAKERS.
         REGISTERED {} TOTAL AUDIOS.
         WITH {} AUDIOS PER SPEAKER.\n""".format(Speaker.total_speakers, Audio.total_audios, audio_per_speaker))
-        input("Press enter to continue...")
         print("CONVERTING AUDIO INTO SPECTROGRAM IMAGES...")
         skipped = 0     # for keeping track of conversion status
         converted = 0
@@ -358,7 +382,6 @@ while True:
         {} AUDIO FILES SUCCESSFULLY CONVERTED.
         {} DUPLICATE AUDIO FILES SKIPPED.
         {} ERROR AUDIO FILES DETECTED.\n""".format(converted, skipped, err))
-        input("Press enter to continue...")
         print("CONVERTING SPECTROGRAM INTO NUMBERS...")
         for speaker in speakers:
             for audio in speaker.get_audios():
@@ -366,9 +389,15 @@ while True:
                 imgData = numpy.asarray(img)                    # saves image file as numpy array
                 imgData = imgData/255                           # converts pixel color into 0 - 1 value
                 audio.set_data(imgData)                         # adds numpy pixel array into the respective audio class
+            random.shuffle(speaker.get_audios())
         print("CONVERSION SUCCESSFUL.\n SPECTROGRAM IMAGES CONVERTED INTO NUMPY ARRAYS.\n")
-        input("Press enter to continue...")
+        print("PRESS ENTER TO CONTINUE...")
+        input()
     elif uinp == "2":
+        if curr_model.get_hidden_unit_size() == 0 or Speaker.total_speakers == 0:
+            print("PLEASE CONVERT AUDIOS AND INITIALIZE PARAMETERS FIRST")
+            input("PRESS ENTER TO CONTINUE...")
+            continue
         train_dataset = []
         val_dataset = []
         test_dataset = []       # !!!FIX
@@ -378,6 +407,7 @@ while True:
         val_loss_increase = 0
         train_loss_increase = 0
         test_loss_increase = 0
+        temp_model = None
         for t_speaker in speakers:
             train_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Train"]
             val_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Validate"]
@@ -387,6 +417,7 @@ while True:
             test_dataset.extend(test_dataset_partial)   # FIX !!!!
         for i in range(1, max_epoch + 1):  # 3000 epochs
             print("EPOCH {}!".format(i))
+            random.shuffle(train_dataset)
             total_train_loss = 0
             for data in train_dataset:
                 print("#", end="")
@@ -442,26 +473,124 @@ while True:
                 print("TESTLOSS:\n", test_loss)
                 if curr_test_loss > test_loss:
                     curr_test_loss = test_loss
+                    temp_model = curr_model
                 else:
                     test_loss_increase = test_loss_increase + 1
+        curr_model = temp_model
         print("TRAIN LOSS INCREASE", train_loss_increase)
         print("VAL LOSS INCREASE", test_loss_increase)
+        print("TRAINING COMPLETED.")
+        print("PRESS ENTER TO CONTINUE...")
+        input()
+    elif uinp == "3":
+        if curr_model.get_hidden_unit_size() == 0 or Speaker.total_speakers == 0:
+            print("PLEASE CONVERT AUDIOS AND INITIALIZE PARAMETERS FIRST")
+            input("PRESS ENTER TO CONTINUE...")
+            continue
+        test_dataset = []
+        for t_speaker in speakers:
+            test_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Test"]
+            test_dataset.extend(test_dataset_partial)
+        confusion_matrix = numpy.zeros((24, 24))
+        temp_accuracy = 0
+        for data in test_dataset:
+            result = test(data.get_data(), numpy.zeros((
+                        curr_model.get_hidden_unit_size(), 1), dtype=float),
+                                         numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float))
+            if numpy.max(result) < decision_threshold:
+                continue
+            target = target_array[data.get_index()]
+            temp_result = int(numpy.argmax(result))
+            temp_target = data.get_index()
+            confusion_matrix[temp_target][temp_result] += 1
+            if temp_target == temp_result:
+                temp_accuracy += 1
+        print(confusion_matrix)
+        curr_model.set_accuracy(temp_accuracy * 100 / len(test_dataset))
+        print("ACCURACY: {:.3f}%".format(curr_model.get_accuracy()))
+
+
+
+        print("PRESS ENTER TO CONTINUE...")
+        input()
     elif uinp == "4":
         temp_lr = float(input("INPUT DESIRED LEARNING RATE: "))
         temp_hu = int(input("INPUT DESIRED HIDDEN UNIT SIZE: "))
         temp_uinp = input("THIS WILL DISCARD CURRENT LSTM MODEL. ARE YOU SURE YOU WANT TO CONTINUE (Y/N)?")
         if not (temp_uinp == "Y" or temp_uinp == "y"):
+            print("OPERATION CANCELLED.")
+            print("PRESS ENTER TO CONTINUE...")
+            input()
             continue
         else:
+            print("CREATING MODEL...")
             learning_rate = temp_lr
             hidden_unit_size = temp_hu
             curr_model = Model(learning_rate, hidden_unit_size)
+            print("MODEL SUCCESSFULLY INITIALIZED.")
+            print("PRESS ENTER TO CONTINUE...")
+            input()
+    elif uinp == "5":
+        if curr_model.get_hidden_unit_size() == 0 or Speaker.total_speakers == 0:
+            print("PLEASE CONVERT AUDIOS AND INITIALIZE PARAMETERS FIRST")
+            input("PRESS ENTER TO CONTINUE...")
+            continue
+        print("SAVING SPEAKER AND MODEL DATA...")
+        save_data = speakers, curr_model
+        save_name = curr_model.get_name()
+        if os.path.exists(os.path.join(path_saved_model, curr_model.get_name())):
+            print("DUPLICATE FILE FOUND. PLEASE RENAME MODELS BEFORE CREATING DUPLICATES.")
+            save_name = save_name + "(1)"
+        f = open(os.path.join(path_saved_model, save_name), "wb")
+        pickle.dump(save_data, f)
+        f.close()
+        del save_data
+        print("DATA SUCCESSFULLY SAVED AT PATH {} AS {}.".format(path_saved_model, curr_model.get_name()))
+        print("PRESS ENTER TO CONTINUE...")
+        input()
+    elif uinp == "6":
+        print("AVAILABLE MODELS:")
+        for model in os.listdir(path_saved_model):
+            print(model)
+        print("Please enter the file name you wish to load.")
+        load_name = input("Choice: ")
+        if not os.path.exists(os.path.join(path_saved_model, load_name)):
+            print("MODEL NOT FOUND.")
+            print("PRESS ENTER TO CONTINUE...")
+            input()
+            continue
+        print("LOADING SPEAKER AND MODEL DATA...")
+        Speaker.total_speakers = 0
+        Audio.total_audios = 0
+        f = open(os.path.join(path_saved_model, load_name), "rb")
+        load_data = pickle.load(f)
+        speakers = load_data[0]
+        curr_model = load_data[1]
+        for speaker in speakers:
+            Speaker.total_speakers = Speaker.total_speakers + 1
+            for audio in speaker.get_audios():
+                Audio.total_audios = Audio.total_audios + 1
+        if Speaker.total_speakers > 0:
+            audio_per_speaker = round(Audio.total_audios / Speaker.total_speakers)
+            for index, speaker in enumerate(speakers):
+                temp_target = numpy.zeros((Speaker.total_speakers, 1), dtype=float)
+                temp_target[index, 0] = 1
+                target_array.append(temp_target)
+                speaker.set_index(index)
+                for audio in speaker.get_audios():
+                    audio.set_index(index)
+        f.close()
+        del load_data
+        print("DATA SUCCESSFULLY LOADED FROM PATH {} AS {}.\n".format(path_saved_model, load_name))
+        print("PRESS ENTER TO CONTINUE...")
+        input()
     elif uinp == "0":
         break
     else:
         # if input not detected correctly
-        print("Input not recognized")
-        continue
+        print("INPUT NOT RECOGNIZED.")
+        print("PRESS ENTER TO CONTINUE...")
+        input()
 
 
 print("SHUTTING DOWN PROGRAM...")
