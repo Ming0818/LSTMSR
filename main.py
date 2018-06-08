@@ -476,16 +476,10 @@ while True:
                     curr_test_loss = test_loss
                     temp_wmh = curr_model.get_wm_hidden()
                     temp_wms = curr_model.get_wm_score()
-                    print("CURRENT WMH: (MAX: {}, MIN: {})".format(numpy.max(temp_wmh), numpy.min(temp_wmh))) # !!!FIX
-                    print(temp_wmh)
                 else:
                     test_loss_increase = test_loss_increase + 1
-        print("FINAL EPOCH WMH: (MAX: {}, MIN: {})".format(numpy.max(curr_model.get_wm_hidden()), numpy.min(curr_model.get_wm_hidden())))
-        print(curr_model.get_wm_hidden())
         curr_model.set_wm_hidden(temp_wmh)
         curr_model.set_wm_score(temp_wms)
-        print("CURRENT WMH: (MAX: {}, MIN: {})".format(numpy.max(curr_model.get_wm_hidden()), numpy.min(curr_model.get_wm_hidden())))
-        print(curr_model.get_wm_hidden())
         print("TRAIN LOSS INCREASE", train_loss_increase)
         print("VAL LOSS INCREASE", test_loss_increase)
         print("TRAINING COMPLETED.")
