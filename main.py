@@ -7,7 +7,7 @@ import subprocess           # for sending shell commands
 import numpy                # for matrix calculations
 import sys                  # for stdout flush
 import random               # for shuffling array / list contents
-from scipy.special import expit     #for sigmoid squash
+from scipy.special import expit     # for sigmoid squash
 from PIL import Image       # for converting gray scale image into numbers
 
 
@@ -165,8 +165,8 @@ def train(f_dataset_train, h_prev, m_prev, t_index):
     inp_whole = numpy.vstack((inp_unit, h_prev))    # value -1 - 1
     hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)     # arbitrary value, safely squashed
     a_gate = numpy.tanh(hidden_whole[:curr_model.get_hidden_unit_size(), :])                             # value -1 - 1
-    i_gate = expit(hidden_whole[curr_model.get_hidden_unit_size():2*curr_model.get_hidden_unit_size(), :])              # value 0 - 1
-    f_gate = expit(hidden_whole[2*curr_model.get_hidden_unit_size():3*curr_model.get_hidden_unit_size(), :] + f_bias)   # value 0 - 1, nearing 1 early
+    i_gate = expit(hidden_whole[curr_model.get_hidden_unit_size():2*curr_model.get_hidden_unit_size(), :])
+    f_gate = expit(hidden_whole[2*curr_model.get_hidden_unit_size():3*curr_model.get_hidden_unit_size(), :] + f_bias)
     o_gate = expit(hidden_whole[3*curr_model.get_hidden_unit_size():, :])                              # value 0 - 1
     m_curr = i_gate * a_gate + f_gate * m_prev      # max value = n + 1, safely squashed
     h_curr = o_gate * numpy.tanh(m_curr)            # value = -1 - 1
@@ -198,7 +198,7 @@ def train(f_dataset_train, h_prev, m_prev, t_index):
     err_f_gate = err_m_curr * m_prev              # errfg = errmc x mprev, CAN GET VERY VERY HUGE
     err_o_gate = err_h_curr * numpy.tanh(m_curr)  # errog = errh x tanh(mcurr), value max err_h_curr
     err_m_prev = err_m_curr * f_gate              # errmprev = errmc x fg, value max err_m_curr
-    err_a_inp = err_a_gate * (1 - numpy.power(numpy.tanh(hidden_whole[:curr_model.get_hidden_unit_size(), :]), 2))   # ainp, err_m_curr
+    err_a_inp = err_a_gate * (1 - numpy.power(numpy.tanh(hidden_whole[:curr_model.get_hidden_unit_size(), :]), 2))
     err_i_inp = err_i_gate * i_gate * (1 - i_gate)  # erriinp = errig * ig * (1 - ig), err_m_curr
     err_f_inp = err_f_gate * f_gate * (1 - f_gate)  # errfinp = errfg * fg * (1 - fg), CAN GET VERY HUGE
     err_o_inp = err_o_gate * o_gate * (1 - o_gate)  # erroinp = errog * og * (1 - og), err_h_curr
@@ -215,8 +215,8 @@ def validate(f_dataset_train, h_prev, m_prev, t_index):
     inp_whole = numpy.vstack((inp_unit, h_prev))    # value -1 - 1
     hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)     # arbitrary value, safely squashed
     a_gate = numpy.tanh(hidden_whole[:curr_model.get_hidden_unit_size(), :])                             # value -1 - 1
-    i_gate = expit(hidden_whole[curr_model.get_hidden_unit_size():2*curr_model.get_hidden_unit_size(), :])              # value 0 - 1
-    f_gate = expit(hidden_whole[2*curr_model.get_hidden_unit_size():3*curr_model.get_hidden_unit_size(), :] + f_bias)   # value 0 - 1, nearing 1 early
+    i_gate = expit(hidden_whole[curr_model.get_hidden_unit_size():2*curr_model.get_hidden_unit_size(), :])
+    f_gate = expit(hidden_whole[2*curr_model.get_hidden_unit_size():3*curr_model.get_hidden_unit_size(), :] + f_bias)
     o_gate = expit(hidden_whole[3*curr_model.get_hidden_unit_size():, :])                              # value 0 - 1
     m_curr = i_gate * a_gate + f_gate * m_prev      # max value = n + 1, safely squashed
     h_curr = o_gate * numpy.tanh(m_curr)            # value = -1 - 1
@@ -235,8 +235,8 @@ def test(f_dataset_train, h_prev, m_prev):
     inp_whole = numpy.vstack((inp_unit, h_prev))    # value -1 - 1
     hidden_whole = numpy.dot(curr_model.get_wm_hidden(), inp_whole)     # arbitrary value, safely squashed
     a_gate = numpy.tanh(hidden_whole[:curr_model.get_hidden_unit_size(), :])                             # value -1 - 1
-    i_gate = expit(hidden_whole[curr_model.get_hidden_unit_size():2*curr_model.get_hidden_unit_size(), :])              # value 0 - 1
-    f_gate = expit(hidden_whole[2*curr_model.get_hidden_unit_size():3*curr_model.get_hidden_unit_size(), :] + f_bias)   # value 0 - 1, nearing 1 early
+    i_gate = expit(hidden_whole[curr_model.get_hidden_unit_size():2*curr_model.get_hidden_unit_size(), :])
+    f_gate = expit(hidden_whole[2*curr_model.get_hidden_unit_size():3*curr_model.get_hidden_unit_size(), :] + f_bias)
     o_gate = expit(hidden_whole[3*curr_model.get_hidden_unit_size():, :])                              # value 0 - 1
     m_curr = i_gate * a_gate + f_gate * m_prev      # max value = n + 1, safely squashed
     h_curr = o_gate * numpy.tanh(m_curr)            # value = -1 - 1
@@ -407,7 +407,8 @@ while True:
         val_loss_increase = 0
         train_loss_increase = 0
         test_loss_increase = 0
-        temp_model = None
+        temp_wmh = numpy.zeros((curr_model.get_hidden_unit_size()*4, input_size+curr_model.get_hidden_unit_size()))
+        temp_wms = numpy.zeros((Speaker.total_speakers, curr_model.get_hidden_unit_size()))
         for t_speaker in speakers:
             train_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Train"]
             val_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Validate"]
@@ -473,10 +474,18 @@ while True:
                 print("TESTLOSS:\n", test_loss)
                 if curr_test_loss > test_loss:
                     curr_test_loss = test_loss
-                    temp_model = curr_model
+                    temp_wmh = curr_model.get_wm_hidden()
+                    temp_wms = curr_model.get_wm_score()
+                    print("CURRENT WMH: (MAX: {}, MIN: {})".format(numpy.max(temp_wmh), numpy.min(temp_wmh))) # !!!FIX
+                    print(temp_wmh)
                 else:
                     test_loss_increase = test_loss_increase + 1
-        curr_model = temp_model
+        print("FINAL EPOCH WMH: (MAX: {}, MIN: {})".format(numpy.max(curr_model.get_wm_hidden()), numpy.min(curr_model.get_wm_hidden())))
+        print(curr_model.get_wm_hidden())
+        curr_model.set_wm_hidden(temp_wmh)
+        curr_model.set_wm_score(temp_wms)
+        print("CURRENT WMH: (MAX: {}, MIN: {})".format(numpy.max(curr_model.get_wm_hidden()), numpy.min(curr_model.get_wm_hidden())))
+        print(curr_model.get_wm_hidden())
         print("TRAIN LOSS INCREASE", train_loss_increase)
         print("VAL LOSS INCREASE", test_loss_increase)
         print("TRAINING COMPLETED.")
@@ -493,10 +502,12 @@ while True:
             test_dataset.extend(test_dataset_partial)
         confusion_matrix = numpy.zeros((24, 24))
         temp_accuracy = 0
+        confidence = 0
         for data in test_dataset:
             result = test(data.get_data(), numpy.zeros((
                         curr_model.get_hidden_unit_size(), 1), dtype=float),
                                          numpy.zeros((curr_model.get_hidden_unit_size(), 1), dtype=float))
+            confidence += numpy.max(result)
             if numpy.max(result) < decision_threshold:
                 continue
             target = target_array[data.get_index()]
@@ -505,12 +516,11 @@ while True:
             confusion_matrix[temp_target][temp_result] += 1
             if temp_target == temp_result:
                 temp_accuracy += 1
-        print(confusion_matrix)
         curr_model.set_accuracy(temp_accuracy * 100 / len(test_dataset))
-        print("ACCURACY: {:.3f}%".format(curr_model.get_accuracy()))
-
-
-
+        print("TEST COMPLETED ON {} AUDIOS".format(len(test_dataset)))
+        print("ACCURACY: {:.3f}% ({} CORRECT PREDICTIONS)".format(curr_model.get_accuracy(), temp_accuracy))
+        print("AVERAGE CONFIDENCE: {:.3f}%".format(confidence * 100 / len(test_dataset)))
+        print("CONFUSION MATRIX:\n", confusion_matrix)
         print("PRESS ENTER TO CONTINUE...")
         input()
     elif uinp == "4":
