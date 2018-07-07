@@ -18,7 +18,7 @@ class Model:                # for storing LSTM models
         self.hidden_unit_size = m_hidden_unit_size      # adjustable parameter
         self.accuracy = 0                               # tested parameter
         temp_name = "{:.10f}".format(self.learning_rate).rstrip("0")       # float formatting for LR
-        self.name = "lr{}h{}".format(temp_name[2:], self.hidden_unit_size)  # for identifying models
+        self.name = "xlr{}h{}".format(temp_name[2:], self.hidden_unit_size)  # for identifying models                   !!!FIX!!!
         # 4 gates, each a dxn matrix to handle input, and each with a dxd matrix for recursion
         #       at     wc uc                d = hidden_unit_size    n = input_size
         # zt = [it] = [wi ui] x [ xt ]      a, i, f, o = gate value
@@ -112,13 +112,13 @@ class Audio:                # for storing each audio file
         self.data = None                           # image data in numerical value [0, 1]
         Audio.total_audios += 1                     # add total audio after initialize
         if self.sentence_type == "SX" and Audio.total_validate_SX < 1:      # 1 SX audio for validate set
-            self.usage = "Validate"
+            self.usage = "Train"                                                                                # !!!FIX!!!
             Audio.total_validate_SX += 1
         if self.sentence_type == "SX" and Audio.total_test_SX < 1:          # 1 SX audio for test set
             self.usage = "Test"
             Audio.total_test_SX += 1
         elif self.sentence_type == "SI" and Audio.total_validate_SI < 1:    # 1 SI audio for validate set
-            self.usage = "Validate"
+            self.usage = "Train"                                                                                # !!!FIX!!!
             Audio.total_validate_SI += 1
         elif self.sentence_type == "SI" and Audio.total_test_SI < 1:        # 1 SI audio for test set
             self.usage = "Test"
@@ -398,7 +398,7 @@ while True:
         # create datasets
         for t_speaker in speakers:
             train_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Train"]
-            val_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Validate"]
+            val_dataset_partial = [t_audio for t_audio in t_speaker.get_audios() if t_audio.get_usage() == "Test"]  # !!!FIX!!!
             train_dataset.extend(train_dataset_partial)
             val_dataset.extend(val_dataset_partial)
         print("START OF TRAINING: ", datetime.datetime.now())   # timestamps start of training
