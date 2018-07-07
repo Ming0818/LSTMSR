@@ -358,7 +358,7 @@ while True:
                     # -X sets pps, -m monochrome, -r raw / no legend, -o output name
                     command = "sox {} -n spectrogram -Y 150 -X 50 -m -r -o {}".format(audio.get_path_raw(),
                                                                                       audio.get_path_converted())
-                    # sends sox command into shell (run this program from shell!)
+                    # sends sox command into shell
                     res = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                     output, errors = res.communicate()     # returns result from subprocess
                     if errors:                             # detects any errors
