@@ -114,7 +114,7 @@ class Audio:                # for storing each audio file
         if self.sentence_type == "SX" and Audio.total_validate_SX < 1:      # 1 SX audio for validate set
             self.usage = "Train"                                                                                # !!!FIX!!!
             Audio.total_validate_SX += 1
-        if self.sentence_type == "SX" and Audio.total_test_SX < 1:          # 1 SX audio for test set
+        elif self.sentence_type == "SX" and Audio.total_test_SX < 1:          # 1 SX audio for test set
             self.usage = "Test"
             Audio.total_test_SX += 1
         elif self.sentence_type == "SI" and Audio.total_validate_SI < 1:    # 1 SI audio for validate set
