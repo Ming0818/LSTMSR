@@ -1,6 +1,6 @@
 # LSTMSR
 
-Speaker Recognition with low-level Long Short-Term Memory for assignment
+Speaker Recognition with low level Long Short-Term Memory and Spectrogram for Bachelor's Thesis
 
 Trains a manually-coded LSTM model to identify human voice using [TIMIT corpus](https://github.com/philipperemy/timit) as dataset and optimizes accuracy by tweaking learning rate and number of units
 
@@ -20,8 +20,8 @@ pillow
 scipy
 ```
 
-- Place raw audio files in raw/
-- Converted audio files are stored in converted/
+- Place raw audio files in raw/ (directory should be filled with dialect subdirectories labeled "DR1", "DR2", etc)
+- Converted audio files are automatically stored in converted/
 - Save/load pickles of trained LSTM models in model/
 
 
