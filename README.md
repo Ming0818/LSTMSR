@@ -1,5 +1,3 @@
-![alt tag](https://github.com/xaltt/LSTMSR/blob/master/img/chuckles.png)
-
 # LSTMSR
 
 Speaker Recognition with low-level Long Short-Term Memory for assignment
